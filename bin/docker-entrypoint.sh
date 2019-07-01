@@ -42,7 +42,7 @@ gpg_gen_key() {
 
   entropy_check
 
-  su -c "gpg --batch --no-tty --gen-key <<EOF
+  gpg --batch --no-tty --gen-key <<EOF
     Key-Type: default
 		Key-Length: $key_length
 		Subkey-Type: default
@@ -52,20 +52,20 @@ gpg_gen_key() {
     Expire-Date: $expiration
     %no-protection
 		%commit
-EOF" -ls /bin/bash www-data
+EOF
 
-  su -c "gpg --armor --export-secret-keys $key_email > $gpg_private_key" -ls /bin/bash www-data
-  su -c "gpg --armor --export $key_email > $gpg_public_key" -ls /bin/bash www-data
+  gpg --armor --export-secret-keys $key_email > $gpg_private_key
+  gpg --armor --export $key_email > $gpg_public_key
 }
 
 gpg_import_key() {
-  su -c "gpg --batch --import $gpg_public_key" -ls /bin/bash www-data
-  su -c "gpg --batch --import $gpg_private_key" -ls /bin/bash www-data
+   gpg --batch --import $gpg_public_key
+   gpg --batch --import $gpg_private_key
 }
 
 gen_ssl_cert() {
   openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
-    -subj '/C=FR/ST=Denial/L=Springfield/O=Dis/CN=www.passbolt.local' \
+    -subj '/C=UY/ST=Agesic/L=Tecnologia/O=TE/CN=passbolt.paas.red.uy' \
     -keyout $ssl_key -out $ssl_cert
 }
 
@@ -73,23 +73,23 @@ install() {
   local app_config="/var/www/passbolt/config/app.php"
 
   if [ ! -f "$app_config" ]; then
-    su -c 'cp /var/www/passbolt/config/app.default.php /var/www/passbolt/config/app.php' -s /bin/bash www-data
+    cp /var/www/passbolt/config/app.default.php /var/www/passbolt/config/app.php
   fi
 
   if [ -z "${PASSBOLT_GPG_SERVER_KEY_FINGERPRINT+xxx}" ] && [ ! -f  '/var/www/passbolt/config/passbolt.php' ]; then
-    gpg_auto_fingerprint="$(su -c "gpg --list-keys --with-colons ${PASSBOLT_KEY_EMAIL:-passbolt@yourdomain.com} |grep fpr |head -1| cut -f10 -d:" -ls /bin/bash www-data)"
+    gpg_auto_fingerprint="$(gpg --list-keys --with-colons ${PASSBOLT_KEY_EMAIL:-passbolt@yourdomain.com} |grep fpr |head -1| cut -f10 -d:)"
     export PASSBOLT_GPG_SERVER_KEY_FINGERPRINT=$gpg_auto_fingerprint
   fi
 
-  su -c '/var/www/passbolt/bin/cake passbolt install --no-admin' -s /bin/bash www-data || su -c '/var/www/passbolt/bin/cake passbolt migrate' -s /bin/bash www-data && echo "Enjoy! ☮"
+  /var/www/passbolt/bin/cake passbolt install --no-admin || /var/www/passbolt/bin/cake passbolt migrate && echo "Enjoy! ☮"
 }
 
 email_cron_job() {
   cron_task='/etc/cron.d/passbolt_email'
   declare -p | grep -Ev 'BASHOPTS|BASH_VERSINFO|EUID|PPID|SHELLOPTS|UID' > /etc/environment
   if [ ! -f "$cron_task" ]; then
-    echo "* * * * * su -c \"source /etc/environment ; /var/www/passbolt/bin/cake EmailQueue.sender\" -s /bin/bash www-data >> /var/log/cron.log 2>&1" >> $cron_task
-    crontab /etc/cron.d/passbolt_email
+    echo "* * * * * source /etc/environment ; /var/www/passbolt/bin/cake EmailQueue.sender >> /var/log/cron.log 2>&1" >> $cron_task
+    /usr/bin/crontab /etc/cron.d/passbolt_email
   fi
 }
 
@@ -107,6 +107,6 @@ if [ ! -f "$ssl_key" ] && [ ! -L "$ssl_key" ] && \
 fi
 
 install
-email_cron_job
+#email_cron_job
 
 /usr/bin/supervisord -n

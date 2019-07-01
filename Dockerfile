@@ -30,18 +30,21 @@ ARG PASSBOLT_BASE_PACKAGES="nginx \
          libmcrypt4 \
          mysql-client \
          supervisor \
-         cron"
+         php-ldap \
+         ldap-utils"
 
 ENV PECL_BASE_URL="https://pecl.php.net/get"
 ENV PHP_EXT_DIR="/usr/src/php/ext"
 
 WORKDIR /var/www/passbolt
+RUN chgrp -R 0 /var/www/passbolt && \
+    chmod -R g=u /var/www/passbolt
 RUN apt-get update \
     && apt-get -y install --no-install-recommends \
       $PASSBOLT_DEV_PACKAGES \
       $PASSBOLT_BASE_PACKAGES \
     && mkdir /home/www-data \
-    && chown -R www-data:www-data /home/www-data \
+    && chown -R www-data:0 /home/www-data \
     && usermod -d /home/www-data www-data \
     && docker-php-source extract \
     && for i in $PECL_PASSBOLT_EXTENSIONS; do \
@@ -65,24 +68,40 @@ RUN apt-get update \
     && rm composer-setup.php \
     && curl -sSL -H "$PASSBOLT_CURL_HEADERS" "$PASSBOLT_URL" | tar zxf - -C . --strip-components 1 \
     && composer install -n --no-dev --optimize-autoloader \
-    && chown -R www-data:www-data . \
-    && chmod 775 $(find /var/www/passbolt/tmp -type d) \
-    && chmod 664 $(find /var/www/passbolt/tmp -type f) \
-    && chmod 775 $(find /var/www/passbolt/webroot/img/public -type d) \
-    && chmod 664 $(find /var/www/passbolt/webroot/img/public -type f) \
+    && chown -R www-data:0 . \
+    && chmod 777 $(find /var/www/passbolt/tmp -type d) \
+    && chmod 666 $(find /var/www/passbolt/tmp -type f) \
+    && chmod 777 $(find /var/www/passbolt/webroot/img/public -type d) \
+    && chmod 666 $(find /var/www/passbolt/webroot/img/public -type f) \
     && rm /etc/nginx/sites-enabled/default \
     && apt-get purge -y --auto-remove $PASSBOLT_DEV_PACKAGES \
     && rm -rf /var/lib/apt/lists/* \
     && rm /usr/local/bin/composer \
     && echo 'php_flag[expose_php] = off' > /usr/local/etc/php-fpm.d/expose.conf \
     && sed -i 's/# server_tokens/server_tokens/' /etc/nginx/nginx.conf \
-    && mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+    && mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+    && echo "extension=ldap.so" >> "$PHP_INI_DIR/php.ini"
 
 COPY conf/passbolt.conf /etc/nginx/conf.d/default.conf
 COPY conf/supervisor/*.conf /etc/supervisor/conf.d/
-COPY bin/docker-entrypoint.sh /docker-entrypoint.sh
+#COPY supervisord.conf /etc/supervisor/
+COPY bin/* /
 COPY scripts/wait-for.sh /usr/bin/wait-for.sh
 
-EXPOSE 80 443
+RUN   chmod g=u /etc/passwd && chgrp 0 /etc/passwd && \
+      chgrp 0 /etc/group && chmod g=u /etc/group && \
+      chgrp -R 0 /etc/environment && chmod -R g=u /etc/environment && \
+      chgrp -R 0 /home/www-data && chmod -R g=u /home/www-data && \
+      chgrp -R 0 /etc/ssl && chmod -R g=u /etc/ssl && \
+      chgrp -R 0 /var/spool/ && chmod -R g=u /var/spool/ && \ 
+      chgrp -R 0 /etc/supervisor && chmod -R g=u /etc/supervisor && \ 
+      chgrp -R 0 /var/run && chmod -R g=u /var/run && \
+      chgrp -R 0 /var/log && chmod -R g=u /var/log && \
+      chgrp -R 0 /var/lib && chmod -R g=u /var/lib && \
+      chgrp -R 0 /usr/bin && chmod -R g=u /usr/bin && \
+      chgrp -R 0 /run && chmod -R g=u /run && \
+      chgrp -R 0 /etc/nginx && chmod -R g=u /etc/nginx
+EXPOSE 8080 4443
 
+ENTRYPOINT [ "/uid_entrypoint" ]
 CMD ["/docker-entrypoint.sh"]
