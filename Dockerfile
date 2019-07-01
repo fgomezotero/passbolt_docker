@@ -10,7 +10,8 @@ ARG PHP_EXTENSIONS="gd \
       intl \
       pdo_mysql \
       opcache \
-      xsl"
+      xsl \
+      ldap"
 
 ARG PECL_PASSBOLT_EXTENSIONS="gnupg \
       redis \
@@ -30,7 +31,7 @@ ARG PASSBOLT_BASE_PACKAGES="nginx \
          libmcrypt4 \
          mysql-client \
          supervisor \
-         php-ldap"
+         libldap2-dev"
 
 ENV PECL_BASE_URL="https://pecl.php.net/get"
 ENV PHP_EXT_DIR="/usr/src/php/ext"
@@ -78,9 +79,8 @@ RUN apt-get update \
     && rm /usr/local/bin/composer \
     && echo 'php_flag[expose_php] = off' > /usr/local/etc/php-fpm.d/expose.conf \
     && sed -i 's/# server_tokens/server_tokens/' /etc/nginx/nginx.conf \
-    && mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
-    && echo "extension=ldap.so" >> "$PHP_INI_DIR/php.ini"
-
+    && mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" 
+    
 COPY conf/passbolt.conf /etc/nginx/conf.d/default.conf
 COPY conf/supervisor/*.conf /etc/supervisor/conf.d/
 #COPY supervisord.conf /etc/supervisor/
