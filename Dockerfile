@@ -102,5 +102,7 @@ RUN   chmod g=u /etc/passwd && chgrp 0 /etc/passwd && \
       chgrp -R 0 /etc/nginx && chmod -R g=u /etc/nginx
 EXPOSE 8080 4443
 
+VOLUME [ "/var/www/passbolt" ]
+
 ENTRYPOINT [ "/uid_entrypoint" ]
 CMD ["/docker-entrypoint.sh"]
